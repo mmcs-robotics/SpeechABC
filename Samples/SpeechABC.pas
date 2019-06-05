@@ -1,4 +1,4 @@
-﻿// Copyright (c) Maxim Puchkin, Stanislav Mihalkovich (for details please see \doc\copyright.txt)
+// Copyright (c) Maxim Puchkin, Stanislav Mihalkovich (for details please see \doc\copyright.txt)
 // This code is distributed under the GNU LGPL (for details please see \doc\license.txt)
 
 ///Модуль реализует воспроизведение речи (text-to-speech) на английском и русском.
@@ -91,8 +91,8 @@ type Recognizer = class
     ///  Автоматическое распознавание языка фраз
     function  DetectLanguage(Phrases : array of string) : Languages;
     procedure SetLang(Language : Languages);
-    procedure SpeechRecognized(sender : object; e : Recognition.SpeechRecognizedEventArgs);
-    procedure SpeechRecognitionRejected(sender : object; e :  Recognition.SpeechRecognitionRejectedEventArgs);
+    procedure SpeechRecognized(sender : object; e : Microsoft.Speech.Recognition.SpeechRecognizedEventArgs);
+    procedure SpeechRecognitionRejected(sender : object; e :  Microsoft.Speech.Recognition.SpeechRecognitionRejectedEventArgs);
     procedure RecognizeCompleted(sender : object; e : RecognizeCompletedEventArgs);
     function Init : boolean;
     
@@ -279,9 +279,9 @@ end;
 function Speaker.GetState : SpeakerState;
   begin
     case synth.State of
-      Synthesis.SynthesizerState.Ready : Result := SpeakerState.Ready;
-      Synthesis.SynthesizerState.Paused : Result := SpeakerState.Paused;
-      Synthesis.SynthesizerState.Speaking : Result := SpeakerState.Speaking;
+      Microsoft.Speech.Synthesis.SynthesizerState.Ready : Result := SpeakerState.Ready;
+      Microsoft.Speech.Synthesis.SynthesizerState.Paused : Result := SpeakerState.Paused;
+      Microsoft.Speech.Synthesis.SynthesizerState.Speaking : Result := SpeakerState.Speaking;
     end;
   end;
 procedure Speaker.SetLang(newLang : Languages);
@@ -401,20 +401,20 @@ begin
     end
   else
     begin
-      Recogn := new Recognition.SpeechRecognitionEngine(RecognizerInfo.Id);
+      Recogn := new Microsoft.Speech.Recognition.SpeechRecognitionEngine(RecognizerInfo.Id);
       Recogn.SpeechRecognized += SpeechRecognized;
       Recogn.SpeechRecognitionRejected += SpeechRecognitionRejected;
       Recogn.RecognizeCompleted += RecognizeCompleted;
     end;
   
-  var Choises := new Recognition.Choices();
+  var Choises := new Microsoft.Speech.Recognition.Choices();
   Choises.Add(PhrasesArr.ToArray);
 
   var gb := new Microsoft.Speech.Recognition.GrammarBuilder();
   gb.Culture := RecognizerInfo.Culture;
   gb.Append(Choises);
   
-  var gr := new Recognition.Grammar(gb);
+  var gr := new Microsoft.Speech.Recognition.Grammar(gb);
   Recogn.LoadGrammar(gr);
   Recogn.RequestRecognizerUpdate();
   try 
@@ -466,7 +466,7 @@ begin
   LanguageDefined := true;
   State := RecognizerStates.NotReady;
 end;
-procedure Recognizer.SpeechRecognized(sender : object; e : Recognition.SpeechRecognizedEventArgs);
+procedure Recognizer.SpeechRecognized(sender : object; e : Microsoft.Speech.Recognition.SpeechRecognizedEventArgs);
 begin
   Recogn.RecognizeAsyncCancel;
   State := RecognizerStates.Wait;
@@ -480,7 +480,7 @@ begin
     end;
 end;
 
-procedure Recognizer.SpeechRecognitionRejected(sender : object; e :  Recognition.SpeechRecognitionRejectedEventArgs);
+procedure Recognizer.SpeechRecognitionRejected(sender : object; e :  Microsoft.Speech.Recognition.SpeechRecognitionRejectedEventArgs);
 begin
   Recogn.RecognizeAsyncCancel;
   State := RecognizerStates.Wait;
@@ -509,7 +509,7 @@ begin
           exit;
         end;
       try
-        Recogn.RecognizeAsync(Recognition.RecognizeMode.Multiple);
+        Recogn.RecognizeAsync(Microsoft.Speech.Recognition.RecognizeMode.Multiple);
         State := RecognizerStates.Recognizing;
       except
         begin
