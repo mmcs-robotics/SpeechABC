@@ -83,8 +83,6 @@ end;
 ///  Обработчик распознавания. Процедура срабатывает, когда что-то распознано
 procedure OnRecogn(phrase : string);
 begin
-  //  Останавливаем распознавание
-  recogn.Stop;
   if phrase = capital then
     begin
       //  Если верный ответ - учитываем и формируем новый вопрос
@@ -103,8 +101,6 @@ begin
         if txt[i].Text = phrase then
           txt[i].Color := Color.Red;
     end;
-  //  Возобновляем распознавание
-  recogn.Start;
 end;
 
 begin
