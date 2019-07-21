@@ -120,6 +120,13 @@ end;
 procedure SpeechInfo;
 ///  Озвучивание одной фразы. Язык выбирается автоматически
 procedure Say(Phrase : string);
+///  Воспроизведение одной фразы, не блокирующее
+procedure SayAsync(Phrase : string);
+///  Озвучивание одной фразы на русском
+procedure SayAsyncRus(Phrase : string);
+///  Озвучивание одной фразы на английском
+procedure SayAsyncEng(Phrase : string);
+
 //------------------------------------------------------------------------------
 implementation
 
@@ -255,6 +262,7 @@ begin
   if Language=Languages.American then Language := Languages.English;
   SetLang(Language);
 end;
+
 constructor Speaker.Create(Phrase : string);
 begin
   synth := new SpeechSynthesizer;
@@ -265,10 +273,12 @@ begin
   SetLang(DetectLanguage(Phrase));
   Speak(Phrase);
 end;
+
 function Speaker.GetRussianVoices : System.Collections.Generic.List<InstalledVoice>;
 begin
   Result := new System.Collections.Generic.List<InstalledVoice>(synth.GetInstalledVoices(CultureInfo.GetCultureInfoByIetfLanguageTag('ru-RU')));
 end;
+
 function Speaker.GetEnglishVoices : System.Collections.Generic.List<InstalledVoice>;
 begin
   var ivUS := synth.GetInstalledVoices(CultureInfo.GetCultureInfoByIetfLanguageTag('en-US'));
@@ -276,6 +286,7 @@ begin
   var iv := ivUS.Concat(ivGB);
   Result := new System.Collections.Generic.List<InstalledVoice>(iv);
 end;
+
 function Speaker.GetState : SpeakerState;
   begin
     case synth.State of
@@ -284,6 +295,7 @@ function Speaker.GetState : SpeakerState;
       Microsoft.Speech.Synthesis.SynthesizerState.Speaking : Result := SpeakerState.Speaking;
     end;
   end;
+  
 procedure Speaker.SetLang(newLang : Languages);
 begin
   if newLang=Languages.American then newLang := Languages.English;
@@ -294,28 +306,34 @@ begin
   else
     SelectEnglishVoice(currEngIndex);
 end;
+
 function Speaker.GetLang : Languages;
   begin
     Result := Lang;
   end;
+  
 procedure Speaker.SetVolume(Volume : integer);
   begin
     AudioVol := min(100, max(0,Volume));
     if synth <> nil then synth.Volume := AudioVol;
   end;  
+  
 function Speaker.GetVolume : integer;
 begin
   Result := AudioVol;
 end;
+
 procedure Speaker.Speak(Phrase : string);
 begin
   synth.Speak(Phrase);
 end;
+
 procedure Speaker.SpeakAsync(Phrase : string);
 begin
   var t := new System.Threading.Thread(() -> synth.Speak(Phrase));
   t.Start();
 end;
+
 procedure Speaker.SelectEnglishVoice(VoiceIndex :integer);
 begin
   var EngVC := GetEnglishVoices;
@@ -325,6 +343,7 @@ begin
   synth.SelectVoice(EngVC.ElementAt(currEngIndex).VoiceInfo.Name);
   Lang := Languages.English;
 end;
+
 procedure Speaker.SelectRussianVoice(VoiceIndex :integer);
 begin
   var RusVC := GetRussianVoices;
@@ -334,6 +353,7 @@ begin
   synth.SelectVoice(RusVC.ElementAt(currRuIndex).VoiceInfo.Name);
   Lang := Languages.Russian;
 end;
+
 procedure Speaker.SelectVoice(VoiceIndex : integer);
 begin
   if Lang = Languages.American then Lang := Languages.English;
@@ -345,6 +365,7 @@ begin
   VoiceIndex := max(0,min(Voices.Count-1,VoiceIndex));
   synth.SelectVoice(Voices.ElementAt(VoiceIndex).VoiceInfo.Name);
 end;
+
 function Speaker.VoicesCount : integer;
 begin
   if Lang = Languages.Russian then
@@ -352,6 +373,7 @@ begin
   else
     Result := GetEnglishVoices.Count;
 end;
+
 //------------------------------------------------------------------------------
 constructor Recognizer.Create(Language : Languages);
 begin
@@ -460,38 +482,38 @@ begin
   else
     Result := Languages.English;
 end;
+
 procedure Recognizer.SetLang(Language : Languages);
 begin
   Lang := Language;
   LanguageDefined := true;
   State := RecognizerStates.NotReady;
 end;
+
 procedure Recognizer.SpeechRecognized(sender : object; e : Microsoft.Speech.Recognition.SpeechRecognizedEventArgs);
 begin
-  Recogn.RecognizeAsyncCancel;
-  State := RecognizerStates.Wait;
-  var tx := e.Result.Text;
-  if OnRecognized <> nil then
-    OnRecognized(tx);
-  if State <> RecognizerStates.Recognizing then
-    begin
-      State := RecognizerStates.Recognizing;
-      Recogn.RecognizeAsync;
+  if (OnRecognized <> nil) and (e <> nil) then
+    try 
+      var tx := e.Result.Text;
+      OnRecognized.Invoke(tx);
+    except
+      on Exception do
+        writeln('Exception captured');
     end;
 end;
 
 procedure Recognizer.SpeechRecognitionRejected(sender : object; e :  Microsoft.Speech.Recognition.SpeechRecognitionRejectedEventArgs);
 begin
-  Recogn.RecognizeAsyncCancel;
-  State := RecognizerStates.Wait;
-  var tx := e.Result.Text;
-  if OnError <> nil then
-    OnError(tx);
-  if State <> RecognizerStates.Recognizing then
+  try
     begin
-      State := RecognizerStates.Recognizing;
-      Recogn.RecognizeAsync;
-    end;
+      var tx := e.Result.Text;
+      if OnError <> nil then
+        OnError(tx);
+    end
+  except 
+    on Exception do
+      writeln('In rejected exception captured');
+  end;
 end;
 
 procedure Recognizer.RecognizeCompleted(sender : object; e : RecognizeCompletedEventArgs);
@@ -505,7 +527,7 @@ begin
     begin
       if OnRecognized = nil then 
         begin
-          //writeln('No defined!');
+          //  Здесь надо исключение выбрасывать
           exit;
         end;
       try
@@ -513,8 +535,8 @@ begin
         State := RecognizerStates.Recognizing;
       except
         begin
-          writeln('Не найдено устройство записи звука!');
-          State := RecognizerStates.NotReady;  
+          //  здесь исключение должно быть
+          State := RecognizerStates.NotReady;
         end;
       end;
     end;
@@ -532,6 +554,24 @@ end;
 procedure Say(Phrase : string);
 begin
   Speaker.Create(Phrase);
+end;
+
+procedure SayAsync(Phrase : string);
+begin
+  var sp := Speaker.Create(DetectLanguage(Phrase));
+  sp.SpeakAsync(Phrase);
+end;
+
+procedure SayAsyncRus(Phrase : string);
+begin
+  var sp := new Speaker(Languages.Russian);
+  sp.SpeakAsync(Phrase);
+end;
+
+procedure SayAsyncEng(Phrase : string);
+begin
+  var sp := new Speaker(Languages.English);
+  sp.SpeakAsync(Phrase);
 end;
 
 end.
